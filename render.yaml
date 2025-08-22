@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: meshless-backend
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: MONGODB_URI
+        fromDatabase:
+          name: meshless-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGIN
+        value: "*"
+      - key: ADMIN_EMAIL
+        value: admin@meshless.network
+      - key: ADMIN_PASSWORD
+        value: SecureAdmin@123
+      - key: POLYGON_RPC_URL
+        value: https://rpc-mumbai.maticvigil.com
+      - key: MESH_NETWORK_ID
+        value: meshless-production
+      - key: DEFAULT_REWARD_RATE
+        value: "1.0"
+      - key: MAX_PEER_CONNECTIONS
+        value: "1000"
+      - key: EMERGENCY_MESSAGE_TTL
+        value: "24"
+      - key: SOS_BROADCAST_RADIUS
+        value: "1000"

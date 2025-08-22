@@ -7,8 +7,13 @@
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
+    "build": "npm install",
     "seed": "node src/seed/seed.js",
     "agent": "node src/scripts/agent-simulator.js"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
   },
   "keywords": [
     "mesh",
