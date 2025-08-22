@@ -257,6 +257,235 @@ router.get('/peers/:peerId/sessions', async (req, res) => {
   }
 });
 
+// Get active sessions
+router.get('/sessions/active', async (req, res) => {
+  try {
+    const sessions = await Session.find({ status: 'active' })
+      .populate('providerId', 'name peerId location')
+      .sort({ startTime: -1 });
+    
+    res.json({
+      success: true,
+      sessions: sessions.map(session => ({
+        sessionId: session.sessionId,
+        _id: session._id,
+        providerId: session.providerId,
+        title: session.title || 'Internet Sharing Session',
+        description: session.description || 'High-speed internet sharing',
+        maxBandwidth: session.maxBandwidth || '50 Mbps',
+        availableBandwidth: session.availableBandwidth || session.maxBandwidth || '50 Mbps',
+        pricePerHour: session.pricePerHour || 5,
+        duration: session.duration || 2,
+        maxUsers: session.maxUsers || 3,
+        connectedUsers: session.connectedUsers || [],
+        status: session.status,
+        createdAt: session.startTime,
+        endTime: session.endTime,
+        location: session.location || 'Location not specified',
+        signalStrength: session.signalStrength || 85,
+        tokensEarned: session.rewardAmount || 0
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Join a session
+router.post('/sessions/:sessionId/join', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { userId, userName } = req.body;
+    
+    if (!userId || !userName) {
+      return res.status(400).json({
+        success: false,
+        error: 'User ID and name are required'
+      });
+    }
+    
+    const session = await Session.findOne({ sessionId });
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        error: 'Session not found'
+      });
+    }
+    
+    if (session.status !== 'active') {
+      return res.status(400).json({
+        success: false,
+        error: 'Session is not active'
+      });
+    }
+    
+    // Check if user is already connected
+    if (session.connectedUsers && session.connectedUsers.includes(userId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Already connected to this session'
+      });
+    }
+    
+    // Check if session is full
+    const maxUsers = session.maxUsers || 3;
+    const currentUsers = session.connectedUsers ? session.connectedUsers.length : 0;
+    if (currentUsers >= maxUsers) {
+      return res.status(400).json({
+        success: false,
+        error: 'Session is full'
+      });
+    }
+    
+    // Add user to session
+    if (!session.connectedUsers) {
+      session.connectedUsers = [];
+    }
+    session.connectedUsers.push(userId);
+    await session.save();
+    
+    res.json({
+      success: true,
+      message: 'Successfully joined session',
+      session: {
+        sessionId: session.sessionId,
+        connectedUsers: session.connectedUsers
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Leave a session
+router.post('/sessions/:sessionId/leave', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { userId } = req.body;
+    
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        error: 'User ID is required'
+      });
+    }
+    
+    const session = await Session.findOne({ sessionId });
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        error: 'Session not found'
+      });
+    }
+    
+    // Remove user from session
+    if (session.connectedUsers) {
+      session.connectedUsers = session.connectedUsers.filter(id => id !== userId);
+      await session.save();
+    }
+    
+    res.json({
+      success: true,
+      message: 'Successfully left session',
+      session: {
+        sessionId: session.sessionId,
+        connectedUsers: session.connectedUsers
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Get session connections
+router.get('/sessions/:sessionId/connections', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    
+    const session = await Session.findOne({ sessionId });
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        error: 'Session not found'
+      });
+    }
+    
+    // Mock connection data for now - in real implementation, 
+    // this would come from a connections tracking system
+    const connections = (session.connectedUsers || []).map(userId => ({
+      sessionId,
+      userId,
+      userName: `User ${userId}`,
+      connectedAt: session.startTime,
+      bandwidthUsed: '0 MB',
+      tokensSpent: 0,
+      status: 'connected'
+    }));
+    
+    res.json({
+      success: true,
+      connections
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Get user sessions
+router.get('/sessions/user/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    const sessions = await Session.find({
+      $or: [
+        { providerId: userId },
+        { consumerId: userId },
+        { connectedUsers: userId }
+      ]
+    }).sort({ startTime: -1 });
+    
+    res.json({
+      success: true,
+      sessions: sessions.map(session => ({
+        sessionId: session.sessionId,
+        _id: session._id,
+        providerId: session.providerId,
+        title: session.title || 'Internet Sharing Session',
+        description: session.description || 'High-speed internet sharing',
+        maxBandwidth: session.maxBandwidth || '50 Mbps',
+        availableBandwidth: session.availableBandwidth || session.maxBandwidth || '50 Mbps',
+        pricePerHour: session.pricePerHour || 5,
+        duration: session.duration || 2,
+        maxUsers: session.maxUsers || 3,
+        connectedUsers: session.connectedUsers || [],
+        status: session.status,
+        createdAt: session.startTime,
+        endTime: session.endTime,
+        location: session.location || 'Location not specified',
+        signalStrength: session.signalStrength || 85,
+        tokensEarned: session.rewardAmount || 0
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // Get network statistics
 router.get('/stats', async (req, res) => {
   try {
