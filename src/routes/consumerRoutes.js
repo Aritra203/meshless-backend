@@ -97,13 +97,13 @@ router.get('/metrics/:userId', auth, async (req, res) => {
     const sessionsWithSpeed = sessions.filter(s => s.averageSpeed);
     const avgSpeed = sessionsWithSpeed.length > 0 
       ? sessionsWithSpeed.reduce((sum, s) => sum + (parseFloat(s.averageSpeed) || 0), 0) / sessionsWithSpeed.length
-      : 25; // Default if no speed data available
+      : 0; // Show 0 if no speed data available (not connected)
 
     // Calculate reliability score based on successful vs failed sessions
     const successfulSessions = sessions.filter(s => s.status === 'completed').length;
     const reliabilityScore = totalSessions > 0 
       ? Math.round((successfulSessions / totalSessions) * 100)
-      : 95; // Default for new users
+      : 0; // Show 0 for new users with no sessions
 
     const metrics = {
       totalDataUsed: `${(totalDataUsed / (1024 * 1024 * 1024)).toFixed(2)} GB`,
@@ -113,8 +113,8 @@ router.get('/metrics/:userId', auth, async (req, res) => {
       favoriteProviders,
       currentMonthSpending: monthlySpending[monthlySpending.length - 1] || 0,
       dataUsageThisMonth: dailyUsage.reduce((sum, day) => sum + day.data, 0),
-      averageSpeed: `${Math.round(avgSpeed)} Mbps`,
-      reliabilityScore: Math.max(75, Math.min(100, reliabilityScore)),
+      averageSpeed: avgSpeed > 0 ? `${Math.round(avgSpeed)} Mbps` : "Not Connected",
+      reliabilityScore: reliabilityScore,
       monthlySpending,
       dailyUsage
     };
