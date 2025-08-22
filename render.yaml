@@ -12,9 +12,7 @@ services:
       - key: PORT
         value: 10000
       - key: MONGODB_URI
-        fromDatabase:
-          name: meshless-db
-          property: connectionString
+        value: mongodb+srv://konararitra72:meshless123@cluster0.bcj0uyf.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
       - key: JWT_SECRET
         generateValue: true
       - key: CORS_ORIGIN

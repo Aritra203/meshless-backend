@@ -12,7 +12,7 @@
     "agent": "node src/scripts/agent-simulator.js"
   },
   "engines": {
-    "node": "18.x",
+    "node": "20.x",
     "npm": ">=8.0.0"
   },
   "keywords": [

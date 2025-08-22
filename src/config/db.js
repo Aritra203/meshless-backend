@@ -4,7 +4,7 @@ import { env } from './env.js';
 export async function connectDB() {
   mongoose.set('strictQuery', true);
   
-  // Enhanced connection options for Render deployment with SSL fixes
+  // Updated connection options compatible with latest MongoDB driver
   const mongooseOptions = {
     autoIndex: true,
     serverSelectionTimeoutMS: 30000, // 30 seconds
@@ -15,11 +15,6 @@ export async function connectDB() {
     w: 'majority',
     maxPoolSize: 10, // Maintain up to 10 socket connections
     minPoolSize: 2, // Maintain minimum 2 connections
-    bufferCommands: false, // Disable mongoose buffering
-    bufferMaxEntries: 0, // Disable mongoose buffering
-    ssl: true, // Force SSL
-    sslValidate: true, // Validate SSL certificates
-    authSource: 'admin', // Authentication database
     maxIdleTimeMS: 30000, // Close connections after 30 seconds of inactivity
     heartbeatFrequencyMS: 10000 // Send a ping every 10 seconds
   };
