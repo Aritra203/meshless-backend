@@ -1,12 +1,168 @@
 import { ChatMessage } from '../models/ChatMessage.js';
 import { EmergencyMessage } from '../models/EmergencyMessage.js';
+import { User } from '../models/User.js';
+import { Session } from '../models/Session.js';
 import { peerDiscoveryService } from '../services/peerDiscoveryService.js';
 import { nanoid } from 'nanoid';
 
 export function initChat(io) {
-  // Original chat namespace
+  // Enhanced chat namespace with session support
   const chatNsp = io.of('/chat');
   chatNsp.on('connection', (socket) => {
+    console.log('User connected to chat:', socket.userId);
+
+    // Join user to their personal room for direct messages
+    socket.join(`user:${socket.userId}`);
+
+    // Handle joining a chat room
+    socket.on('join-room', async ({ roomId }) => {
+      try {
+        socket.join(roomId);
+        console.log(`User ${socket.userId} joined room: ${roomId}`);
+        
+        // If it's a session room, validate access
+        if (roomId.startsWith('session-')) {
+          const sessionId = roomId.replace('session-', '');
+          const session = await Session.findOne({ sessionId });
+          
+          if (!session) {
+            socket.emit('error', { message: 'Session not found' });
+            return;
+          }
+          
+          // Check if user has access to this session
+          const hasAccess = session.providerId?.toString() === socket.userId ||
+                           session.consumerId?.toString() === socket.userId ||
+                           session.connectedUsers?.includes(socket.userId);
+          
+          if (!hasAccess) {
+            socket.emit('error', { message: 'Access denied to this session' });
+            socket.leave(roomId);
+            return;
+          }
+        }
+        
+        // Send message history
+        const history = await ChatMessage.find({ room: roomId })
+          .populate('fromUser', 'name')
+          .sort({ createdAt: -1 })
+          .limit(30)
+          .lean();
+        
+        socket.emit('message-history', history.reverse());
+        
+        // Notify other users in the room
+        socket.to(roomId).emit('user-joined', {
+          userId: socket.userId,
+          roomId
+        });
+        
+      } catch (error) {
+        socket.emit('error', { message: 'Failed to join room' });
+      }
+    });
+
+    // Handle leaving a chat room
+    socket.on('leave-room', ({ roomId }) => {
+      socket.leave(roomId);
+      console.log(`User ${socket.userId} left room: ${roomId}`);
+      
+      // Notify other users in the room
+      socket.to(roomId).emit('user-left', {
+        userId: socket.userId,
+        roomId
+      });
+    });
+
+    // Enhanced message sending
+    socket.on('send-message', async (data) => {
+      try {
+        const { roomId, content, type = 'text', metadata } = data;
+        
+        if (!roomId || !content) {
+          socket.emit('error', { message: 'Room ID and content are required' });
+          return;
+        }
+        
+        // Handle emergency messages differently
+        if (roomId === 'emergency-global' || type === 'emergency') {
+          const emergencyMessage = new EmergencyMessage({
+            type: metadata?.emergencyType || 'alert',
+            message: content,
+            location: metadata?.location,
+            severity: metadata?.severity || 'medium',
+            reportedBy: socket.userId,
+            status: 'active'
+          });
+          
+          await emergencyMessage.save();
+          await emergencyMessage.populate('reportedBy', 'name');
+          
+          // Broadcast emergency message to all users
+          const emergencyData = {
+            id: emergencyMessage._id,
+            type: emergencyMessage.type,
+            message: emergencyMessage.message,
+            location: emergencyMessage.location,
+            severity: emergencyMessage.severity,
+            reportedBy: emergencyMessage.reportedBy._id,
+            reportedByName: emergencyMessage.reportedBy.name,
+            timestamp: emergencyMessage.createdAt,
+            status: emergencyMessage.status
+          };
+          
+          io.emit('emergency-alert', emergencyData);
+          return;
+        }
+        
+        // Save regular message to database
+        const message = new ChatMessage({
+          room: roomId,
+          fromUser: socket.userId,
+          content,
+          type,
+          metadata
+        });
+        
+        await message.save();
+        await message.populate('fromUser', 'name');
+        
+        // Broadcast message to room
+        const messageData = {
+          id: message._id,
+          room: message.room,
+          fromUser: message.fromUser._id,
+          fromUserName: message.fromUser.name,
+          content: message.content,
+          timestamp: message.createdAt,
+          type: message.type,
+          metadata: message.metadata
+        };
+        
+        chatNsp.to(roomId).emit('new-message', messageData);
+        
+      } catch (error) {
+        console.error('Error sending message:', error);
+        socket.emit('error', { message: 'Failed to send message' });
+      }
+    });
+
+    // Handle typing indicators
+    socket.on('typing-start', ({ roomId }) => {
+      socket.to(roomId).emit('user-typing', {
+        userId: socket.userId,
+        roomId
+      });
+    });
+
+    socket.on('typing-stop', ({ roomId }) => {
+      socket.to(roomId).emit('user-stopped-typing', {
+        userId: socket.userId,
+        roomId
+      });
+    });
+
+    // Original chat handlers for backward compatibility
     socket.on('join', async ({ room, userId }) => {
       if (!room || !userId) return;
       socket.join(room);
@@ -18,6 +174,10 @@ export function initChat(io) {
       if (!room || !userId || !content) return;
       const msg = await ChatMessage.create({ room, fromUser: userId, content });
       chatNsp.to(room).emit('message', { _id: msg._id, room, fromUser: userId, content, createdAt: msg.createdAt });
+    });
+
+    socket.on('disconnect', () => {
+      console.log('User disconnected from chat:', socket.userId);
     });
   });
 

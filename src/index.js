@@ -14,6 +14,7 @@ import leaderboardRoutes from './routes/leaderboardRoutes.js';
 import meshRoutes from './routes/meshRoutes.js';
 import blockchainRoutes from './routes/blockchainRoutes.js';
 import emergencyRoutes from './routes/emergencyRoutes.js';
+import chatRoutes from './routes/chatRoutes.js';
 import { initChat } from './sockets/chat.js';
 
 const app = express();
@@ -30,6 +31,7 @@ app.get('/', (req, res) => res.json({
     'Mesh Networking & P2P Discovery',
     'Blockchain Rewards (Polygon)',
     'Emergency Communication',
+    'Real-time Chat & Messaging',
     'Usage Tracking & Analytics',
     'WebRTC Signaling'
   ],
@@ -47,6 +49,7 @@ app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/mesh', meshRoutes);
 app.use('/api/blockchain', blockchainRoutes);
 app.use('/api/emergency', emergencyRoutes);
+app.use('/api/chat', chatRoutes);
 
 const server = http.createServer(app);
 const io = new Server(server, { 
