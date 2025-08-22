@@ -11,16 +11,18 @@ services:
         value: production
       - key: PORT
         value: 10000
-      - key: MONGODB_URI
-        value: mongodb+srv://konararitra72:meshless123@cluster0.bcj0uyf.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
+      # MONGODB_URI should be set manually in Render dashboard for security
+      # - key: MONGODB_URI
+      #   value: "Set this in Render dashboard environment variables"
       - key: JWT_SECRET
         generateValue: true
       - key: CORS_ORIGIN
         value: "*"
-      - key: ADMIN_EMAIL
-        value: admin@meshless.network
-      - key: ADMIN_PASSWORD
-        value: SecureAdmin@123
+      # Admin credentials should be set manually in Render dashboard for security
+      # - key: ADMIN_EMAIL
+      #   value: "Set this in Render dashboard environment variables"
+      # - key: ADMIN_PASSWORD
+      #   value: "Set this in Render dashboard environment variables"
       - key: POLYGON_RPC_URL
         value: https://rpc-mumbai.maticvigil.com
       - key: MESH_NETWORK_ID
