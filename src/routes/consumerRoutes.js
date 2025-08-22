@@ -93,6 +93,18 @@ router.get('/metrics/:userId', auth, async (req, res) => {
       });
     }
 
+    // Calculate average speed from session data
+    const sessionsWithSpeed = sessions.filter(s => s.averageSpeed);
+    const avgSpeed = sessionsWithSpeed.length > 0 
+      ? sessionsWithSpeed.reduce((sum, s) => sum + (parseFloat(s.averageSpeed) || 0), 0) / sessionsWithSpeed.length
+      : 25; // Default if no speed data available
+
+    // Calculate reliability score based on successful vs failed sessions
+    const successfulSessions = sessions.filter(s => s.status === 'completed').length;
+    const reliabilityScore = totalSessions > 0 
+      ? Math.round((successfulSessions / totalSessions) * 100)
+      : 95; // Default for new users
+
     const metrics = {
       totalDataUsed: `${(totalDataUsed / (1024 * 1024 * 1024)).toFixed(2)} GB`,
       totalTokensSpent,
@@ -101,8 +113,8 @@ router.get('/metrics/:userId', auth, async (req, res) => {
       favoriteProviders,
       currentMonthSpending: monthlySpending[monthlySpending.length - 1] || 0,
       dataUsageThisMonth: dailyUsage.reduce((sum, day) => sum + day.data, 0),
-      averageSpeed: "50 Mbps", // TODO: Calculate from session data
-      reliabilityScore: Math.max(85, Math.min(100, 95 - (totalSessions - activeSessions) * 2)),
+      averageSpeed: `${Math.round(avgSpeed)} Mbps`,
+      reliabilityScore: Math.max(75, Math.min(100, reliabilityScore)),
       monthlySpending,
       dailyUsage
     };
